@@ -206,8 +206,7 @@ export default function EventsPage() {
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((event) => (
-                <Link key={event.id} href={`/organizer/events/${event.id}`}>
-                  <div className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary hover:shadow-lg transition-all h-full">
+                <div key={event.id} className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary hover:shadow-lg transition-all h-full">
                     <div className="h-40 overflow-hidden border-b border-border">
                       <img src={EVENT_IMAGE} alt="Event cover" className="h-full w-full object-cover" />
                     </div>
@@ -258,9 +257,17 @@ export default function EventsPage() {
                           {event.status}
                         </span>
                       </div>
+
+                      <div className="pt-2 grid grid-cols-2 gap-3">
+                        <Link href={`/organizer/events/${event.id}`}>
+                          <Button variant="outline" className="w-full">View Event</Button>
+                        </Link>
+                        <Link href={`/organizer/services?eventId=${event.id}`}>
+                          <Button className="w-full">Hire Service</Button>
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                </div>
               ))}
             </div>
 
