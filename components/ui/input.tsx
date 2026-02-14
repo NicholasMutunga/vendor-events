@@ -20,3 +20,6 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
 Input.displayName = 'Input'
 
 export { Input }
+
+
+{/* <h1 className="text-2xl font-bold">Input Component</h1> */}
