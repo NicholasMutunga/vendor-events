@@ -161,7 +161,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/signup/vendor">
-              <Button size="lg" variant="outline" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10">
+              <Button size="lg" variant="outline" className="text-primary-foreground hover:bg-primary-foreground/10">
                 Join as Vendor
               </Button>
             </Link>

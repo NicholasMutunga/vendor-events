@@ -1,11 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import axios from 'axios'
 import VendorSidebar from '@/components/vendor-sidebar'
 import { apiClient } from '@/lib/api-client'
-import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, ShoppingBag, DollarSign, Users } from 'lucide-react'
@@ -13,11 +12,16 @@ import { Plus, Search, ShoppingBag, DollarSign, Users } from 'lucide-react'
 type BackendService = {
   id?: string | number
   _id?: string | number
+  vendor_id?: string | number
+  user_id?: string | number
+  created_by?: string | number
   category?: string
   title?: string
   description?: string
   pricing?: number
   guest_count?: number
+  vendor?: { id?: string | number }
+  user?: { id?: string | number }
 }
 
 type UiService = {
@@ -28,74 +32,6 @@ type UiService = {
   pricing: number
   guest_count: number
 }
-
-type EventVendorInterest = {
-  vendor_id: number
-  status: string
-  proposal: string
-}
-
-type EventVendorAgreement = {
-  vendor_id: number
-  status: string
-}
-
-type EventWithVendors = {
-  id: number
-  title: string
-  interests: EventVendorInterest[]
-  agreements: EventVendorAgreement[]
-}
-
-const ALL_CATEGORY = 'all'
-const FILTER_CATEGORIES = [ALL_CATEGORY, ...SERVICE_CATEGORIES]
-const EVENT_VENDOR_DATA: EventWithVendors[] = [
-  {
-    id: 1,
-    title: 'Grand Corporate Gala',
-    interests: [
-      { vendor_id: 1, status: 'accepted', proposal: 'We can provide excellent service for your event - John Caterer' },
-      { vendor_id: 2, status: 'pending', proposal: 'We can provide excellent service for your event - Sarah Decorator' },
-      { vendor_id: 3, status: 'pending', proposal: 'We can provide excellent service for your event - Mike Photographer' },
-      { vendor_id: 4, status: 'pending', proposal: 'We can provide excellent service for your event - Lisa Sound Engineer' },
-    ],
-    agreements: [
-      { vendor_id: 2, status: 'confirmed' },
-      { vendor_id: 1, status: 'confirmed' },
-    ],
-  },
-  {
-    id: 2,
-    title: 'Wedding Reception',
-    interests: [
-      { vendor_id: 1, status: 'accepted', proposal: 'Perfect service for your wedding - John Caterer' },
-      { vendor_id: 2, status: 'pending', proposal: 'Perfect service for your wedding - Sarah Decorator' },
-      { vendor_id: 3, status: 'pending', proposal: 'Perfect service for your wedding - Mike Photographer' },
-      { vendor_id: 4, status: 'pending', proposal: 'Perfect service for your wedding - Lisa Sound Engineer' },
-      { vendor_id: 5, status: 'pending', proposal: 'Perfect service for your wedding - James Transport' },
-    ],
-    agreements: [
-      { vendor_id: 7, status: 'pending' },
-      { vendor_id: 1, status: 'confirmed' },
-    ],
-  },
-  {
-    id: 3,
-    title: 'Product Launch',
-    interests: [
-      { vendor_id: 1, status: 'accepted', proposal: 'Excellent for your product launch - John Caterer' },
-      { vendor_id: 2, status: 'accepted', proposal: 'Excellent for your product launch - Sarah Decorator' },
-      { vendor_id: 3, status: 'accepted', proposal: 'Excellent for your product launch - Mike Photographer' },
-      { vendor_id: 4, status: 'pending', proposal: 'Excellent for your product launch - Lisa Sound Engineer' },
-      { vendor_id: 5, status: 'pending', proposal: 'Excellent for your product launch - James Transport' },
-      { vendor_id: 6, status: 'pending', proposal: 'Excellent for your product launch - Amanda Security' },
-    ],
-    agreements: [
-      { vendor_id: 3, status: 'confirmed' },
-      { vendor_id: 4, status: 'confirmed' },
-    ],
-  },
-]
 
 function normalizeService(service: BackendService, index: number): UiService {
   const serviceId = service.id ?? service._id ?? `service-${index}`
@@ -113,43 +49,8 @@ function normalizeService(service: BackendService, index: number): UiService {
 export default function ServicesPage() {
   const [services, setServices] = useState<UiService[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterCategory, setFilterCategory] = useState<string>(ALL_CATEGORY)
-  const [selectedEventId, setSelectedEventId] = useState<number | ''>('')
-  const [selectedVendorId, setSelectedVendorId] = useState<number | ''>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const selectedEvent = useMemo(
-    () => EVENT_VENDOR_DATA.find((event) => event.id === selectedEventId),
-    [selectedEventId]
-  )
-
-  const vendorOptions = useMemo(() => {
-    if (!selectedEvent) return []
-
-    const map = new Map<number, { id: number; label: string; status: string }>()
-
-    selectedEvent.interests.forEach((interest) => {
-      const nameFromProposal = interest.proposal.split(' - ')[1] || `Vendor #${interest.vendor_id}`
-      map.set(interest.vendor_id, {
-        id: interest.vendor_id,
-        label: nameFromProposal,
-        status: interest.status,
-      })
-    })
-
-    selectedEvent.agreements.forEach((agreement) => {
-      if (!map.has(agreement.vendor_id)) {
-        map.set(agreement.vendor_id, {
-          id: agreement.vendor_id,
-          label: `Vendor #${agreement.vendor_id}`,
-          status: agreement.status,
-        })
-      }
-    })
-
-    return Array.from(map.values())
-  }, [selectedEvent])
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -157,9 +58,11 @@ export default function ServicesPage() {
       setError('')
 
       try {
-        const response = await apiClient.get('/service')
+        const response = await apiClient.get('/vendor/services')
         const payload = response.data
-        const rawServices: BackendService[] = Array.isArray(payload) ? payload : payload?.data || []
+        const rawServices: BackendService[] = Array.isArray(payload)
+          ? payload
+          : payload?.services || payload?.data || []
         setServices(rawServices.map(normalizeService))
       } catch (err) {
         if (axios.isAxiosError(err)) {
@@ -177,14 +80,13 @@ export default function ServicesPage() {
   }, [])
 
   const filtered = services.filter((service) => {
-    const matchesCategory = filterCategory === ALL_CATEGORY || service.category === filterCategory
     const keyword = searchTerm.trim().toLowerCase()
-    const matchesSearch =
-      keyword.length === 0 ||
+    if (keyword.length === 0) return true
+
+    return (
       service.title.toLowerCase().includes(keyword) ||
       service.description.toLowerCase().includes(keyword)
-
-    return matchesCategory && matchesSearch
+    )
   })
 
   return (
@@ -215,69 +117,6 @@ export default function ServicesPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
-            </div>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            {FILTER_CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setFilterCategory(cat)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  filterCategory === cat
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-foreground hover:bg-secondary/80'
-                }`}
-              >
-                {cat === ALL_CATEGORY ? 'All' : cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-6 rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-semibold mb-4">Select Vendor From Event Data</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="eventSelect" className="block text-sm font-medium">
-                Event
-              </label>
-              <select
-                id="eventSelect"
-                value={selectedEventId}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setSelectedEventId(value ? Number(value) : '')
-                  setSelectedVendorId('')
-                }}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Choose event...</option>
-                {EVENT_VENDOR_DATA.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {event.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="vendorSelect" className="block text-sm font-medium">
-                Vendor
-              </label>
-              <select
-                id="vendorSelect"
-                value={selectedVendorId}
-                onChange={(e) => setSelectedVendorId(e.target.value ? Number(e.target.value) : '')}
-                disabled={!selectedEvent}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
-              >
-                <option value="">Choose vendor...</option>
-                {vendorOptions.map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>
-                    {vendor.label} ({vendor.status})
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
         </div>
